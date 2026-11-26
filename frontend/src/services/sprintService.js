@@ -5,6 +5,14 @@ export const sprintService = {
     const { data } = await apiClient.get(`/sprints/project/${projectId}`, { params });
     return data.sprints || [];
   },
+  // Legacy workspace-scoped call — routes by projectId if present, else returns empty
+  async list(params = {}) {
+    if (params.projectId) {
+      return this.listByProject(params.projectId);
+    }
+    // No workspace-level sprint list supported; return empty safely
+    return [];
+  },
   async getById(id) {
     const { data } = await apiClient.get(`/sprints/${id}`);
     return data.sprint || data;

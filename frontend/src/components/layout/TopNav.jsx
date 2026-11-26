@@ -35,12 +35,28 @@ export const TopNav = ({
 }) => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { currentWorkspace, unreadCount, setUnreadCount } = useWorkspace();
+  const { currentWorkspace, currentProject, unreadCount, setUnreadCount } = useWorkspace();
 
   const [notifOpen, setNotifOpen] = useState(false);
   const [recentNotifs, setRecentNotifs] = useState([]);
 
-  const routeLabel = ROUTE_TITLES[location.pathname] || 'Workspace';
+  const projectRouteLabel = location.pathname.match(/\/projects\/[^/]+\/([^/]+)/)?.[1];
+  const routeLabel =
+    (projectRouteLabel &&
+      ({
+        dashboard: 'Dashboard',
+        'my-tasks': 'My Tasks',
+        board: 'Kanban Board',
+        backlog: 'Backlog',
+        sprints: 'Sprints',
+        team: 'Team Members',
+        reports: 'Reports & Analytics',
+        activity: 'Activity',
+        notifications: 'Notifications',
+        settings: 'Settings',
+      }[projectRouteLabel])) ||
+    ROUTE_TITLES[location.pathname] ||
+    'Workspace';
   const apiConnected = Boolean(health?.status === 'ok' && !healthError);
 
   const statusLabel = healthLoading
@@ -73,7 +89,9 @@ export const TopNav = ({
         </button>
 
         <div className={styles.breadcrumb}>
-          <span className={styles.workspace}>{currentWorkspace?.name || 'TASKFLOW PRO'}</span>
+          <span className={styles.workspace}>
+            {currentProject ? `${currentProject.key || 'TF'} — ${currentProject.name}` : currentWorkspace?.name || 'TASKFLOW PRO'}
+          </span>
           <span className={styles.separator}>/</span>
           <span className={styles.route}>{routeLabel}</span>
         </div>

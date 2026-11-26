@@ -1,17 +1,25 @@
-import { useState } from 'react';
-import { Outlet } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { Outlet, useLocation } from 'react-router-dom';
 import { Sidebar } from '../components/layout/Sidebar';
 import { TopNav } from '../components/layout/TopNav';
 import { useHealthCheck } from '../hooks/useHealthCheck';
 import styles from './AppLayout.module.css';
+import { useWorkspace } from '../hooks/useWorkspace';
 
 export const AppLayout = () => {
+  const location = useLocation();
+  const { selectProject } = useWorkspace();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTeamFilter, setActiveTeamFilter] = useState('All');
 
   const { health, loading, error, refresh } = useHealthCheck();
+
+  useEffect(() => {
+    const match = location.pathname.match(/^\/projects\/([^/]+)/);
+    if (match) selectProject(match[1]);
+  }, [location.pathname, selectProject]);
 
   return (
     <div className={styles.shell}>

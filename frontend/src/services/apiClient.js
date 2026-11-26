@@ -2,6 +2,7 @@ import axios from 'axios';
 
 export const TOKEN_STORAGE_KEY = 'taskflow-pro-token';
 export const PROJECT_STORAGE_KEY = 'taskflow-pro-project-id';
+export const WORKSPACE_STORAGE_KEY = 'taskflow-pro-workspace-id';
 export const RECENT_PROJECTS_KEY = 'taskflow-pro-recent-projects';
 
 const baseURL = import.meta.env.VITE_API_BASE_URL || '/api';

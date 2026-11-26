@@ -1,12 +1,16 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { WorkspaceContext } from './workspaceContextValue';
 import { useAuth } from '../hooks/useAuth';
-import { WORKSPACE_STORAGE_KEY } from '../services/apiClient';
+import {
+  PROJECT_STORAGE_KEY,
+  RECENT_PROJECTS_KEY,
+  WORKSPACE_STORAGE_KEY,
+} from '../services/apiClient';
 import { workspaceService } from '../services/workspaceService';
 import { projectService } from '../services/projectService';
 import { notificationService } from '../services/notificationService';
 import { backlogService } from '../services/backlogService';
-import { getSocket, joinWorkspaceRoom } from '../services/socketService';
+import { getSocket, joinProjectRoom } from '../services/socketService';
 
 export const WorkspaceProvider = ({ children }) => {
   const { user, isAuthenticated } = useAuth();
@@ -15,6 +19,9 @@ export const WorkspaceProvider = ({ children }) => {
     () => window.localStorage.getItem(WORKSPACE_STORAGE_KEY) || ''
   );
   const [projects, setProjects] = useState([]);
+  const [currentProjectId, setCurrentProjectId] = useState(
+    () => window.localStorage.getItem(PROJECT_STORAGE_KEY) || ''
+  );
   const [members, setMembers] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [backlogCount, setBacklogCount] = useState(0);
@@ -25,14 +32,21 @@ export const WorkspaceProvider = ({ children }) => {
     [workspaces, currentWorkspaceId]
   );
 
+  const currentProject = useMemo(
+    () => projects.find((project) => project._id === currentProjectId) || null,
+    [projects, currentProjectId]
+  );
+
   const activeRole = useMemo(() => {
-    if (!currentWorkspace || !user) return 'developer';
+    if (!user) return 'developer';
+    if (currentProject?.myRole) return currentProject.myRole;
+    if (!currentWorkspace) return 'developer';
     const uid = user.id || user._id;
     const found = currentWorkspace.members?.find(
       (m) => (m.user?._id || m.user)?.toString() === uid?.toString()
     );
     return found?.role || 'developer';
-  }, [currentWorkspace, user]);
+  }, [currentWorkspace, currentProject, user]);
 
   const refreshWorkspaces = useCallback(async () => {
     if (!isAuthenticated) {
@@ -65,18 +79,25 @@ export const WorkspaceProvider = ({ children }) => {
   }, [isAuthenticated]);
 
   const refreshWorkspaceMeta = useCallback(async (wsId) => {
-    if (!wsId || !isAuthenticated) return;
+    if (!isAuthenticated) return;
     try {
-      const [projList, memberList, unread, backlog] = await Promise.all([
-        projectService.list({ workspaceId: wsId }),
-        workspaceService.getMembers(wsId),
+      const [projList, unread] = await Promise.all([
+        projectService.list(),
         notificationService.getUnreadCount(),
-        backlogService.getByWorkspace(wsId),
       ]);
       setProjects(projList);
-      setMembers(memberList);
       setUnreadCount(unread);
-      setBacklogCount(backlog.total ?? (backlog.issues?.length || 0));
+      if (wsId) {
+        const [memberList, backlog] = await Promise.all([
+          workspaceService.getMembers(wsId),
+          backlogService.getByWorkspace(wsId),
+        ]);
+        setMembers(memberList);
+        setBacklogCount(backlog.total ?? (backlog.issues?.length || 0));
+      } else {
+        setMembers([]);
+        setBacklogCount(0);
+      }
     } catch {
       // ignore background refresh error
     }
@@ -97,11 +118,10 @@ export const WorkspaceProvider = ({ children }) => {
   }, [refreshWorkspaces]);
 
   useEffect(() => {
-    const activeId = currentWorkspace?._id;
-    if (!activeId || !isAuthenticated) return;
-    joinWorkspaceRoom(activeId);
-    refreshWorkspaceMeta(activeId);
-  }, [currentWorkspace?._id, isAuthenticated, refreshWorkspaceMeta]);
+  if (!isAuthenticated) return;
+
+  refreshWorkspaceMeta(currentWorkspace?._id);
+}, [currentWorkspace?._id, isAuthenticated, refreshWorkspaceMeta]);
 
   useEffect(() => {
     if (!isAuthenticated) return;
@@ -141,12 +161,33 @@ export const WorkspaceProvider = ({ children }) => {
     window.localStorage.setItem(WORKSPACE_STORAGE_KEY, wsId);
   }, []);
 
+  const selectProject = useCallback((projectId) => {
+    setCurrentProjectId(projectId || '');
+    if (projectId) {
+      window.localStorage.setItem(PROJECT_STORAGE_KEY, projectId);
+      let recent = [];
+      try {
+        recent = JSON.parse(window.localStorage.getItem(RECENT_PROJECTS_KEY) || '[]');
+      } catch {
+        recent = [];
+      }
+      const nextRecent = [projectId, ...recent.filter((id) => id !== projectId)].slice(0, 8);
+      window.localStorage.setItem(RECENT_PROJECTS_KEY, JSON.stringify(nextRecent));
+      joinProjectRoom(projectId);
+    } else {
+      window.localStorage.removeItem(PROJECT_STORAGE_KEY);
+    }
+  }, []);
+
   const value = useMemo(
     () => ({
       workspaces,
       currentWorkspace,
       activeRole,
       projects,
+      currentProject,
+      currentProjectId,
+      selectProject,
       members,
       unreadCount,
       setUnreadCount,
@@ -162,6 +203,9 @@ export const WorkspaceProvider = ({ children }) => {
       currentWorkspace,
       activeRole,
       projects,
+      currentProject,
+      currentProjectId,
+      selectProject,
       members,
       unreadCount,
       backlogCount,

@@ -40,7 +40,7 @@ export const RegisterPage = () => {
         title: title.trim() || undefined,
         password,
       });
-      navigate('/dashboard', { replace: true });
+      navigate('/projects', { replace: true });
     } catch (err) {
       setError(err.message || 'Registration failed');
     } finally {

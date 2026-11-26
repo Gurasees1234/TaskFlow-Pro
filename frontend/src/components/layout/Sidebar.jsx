@@ -61,8 +61,9 @@ const getInitials = (name = 'User') =>
 export const Sidebar = ({ collapsed, onToggleCollapse, mobileOpen, onCloseMobile }) => {
   const { user, logout } = useAuth();
   const {
-    workspaces,
-    currentWorkspace,
+    projects,
+    currentProject,
+    selectProject,
     activeRole,
     unreadCount,
     backlogCount,
@@ -72,6 +73,30 @@ export const Sidebar = ({ collapsed, onToggleCollapse, mobileOpen, onCloseMobile
   const navigate = useNavigate();
 
   const [showCreateWs, setShowCreateWs] = useState(false);
+  const projectPrefix = currentProject ? `/projects/${currentProject._id}` : '';
+  const overviewNav = projectPrefix
+    ? [
+        { to: `${projectPrefix}/dashboard`, label: 'Dashboard', icon: LayoutDashboard },
+        { to: `${projectPrefix}/my-tasks`, label: 'My Tasks', icon: CheckSquare },
+        { to: `${projectPrefix}/board`, label: 'Board', icon: Columns3 },
+      ]
+    : OVERVIEW_NAV;
+  const projectNav = projectPrefix
+    ? [
+        { to: '/projects', label: 'Projects', icon: Briefcase },
+        { to: `${projectPrefix}/backlog`, label: 'Backlog', icon: ListTodo, badgeKey: 'backlog' },
+        { to: `${projectPrefix}/sprints`, label: 'Sprints', icon: Zap },
+        { to: `${projectPrefix}/reports`, label: 'Reports', icon: BarChart3 },
+      ]
+    : WORKSPACE_NAV;
+  const manageNav = projectPrefix
+    ? [
+        { to: `${projectPrefix}/team`, label: 'Team Members', icon: Users },
+        { to: `${projectPrefix}/activity`, label: 'Activity', icon: Activity },
+        { to: `${projectPrefix}/notifications`, label: 'Notifications', icon: Bell, badgeKey: 'notifications' },
+        { to: `${projectPrefix}/settings`, label: 'Settings', icon: Settings },
+      ]
+    : MANAGE_NAV;
 
   const badgeCounts = {
     backlog: backlogCount,
@@ -151,31 +176,36 @@ export const Sidebar = ({ collapsed, onToggleCollapse, mobileOpen, onCloseMobile
           </div>
         </div>
 
-        {/* Workspace Switcher */}
+        {/* Project Switcher */}
         {!collapsed && (
           <div className={styles.wsSwitcherWrap}>
             <select
-              aria-label="Active workspace"
+              aria-label="Active project"
               className={styles.wsSelect}
-              value={currentWorkspace?._id || ''}
-              onChange={(e) => selectWorkspace(e.target.value)}
+              value={currentProject?._id || ''}
+              onChange={(e) => {
+                const projectId = e.target.value;
+                if (!projectId) return;
+                selectProject(projectId);
+                navigate(`/projects/${projectId}/dashboard`);
+              }}
             >
-              {workspaces.length === 0 ? (
-                <option value="">No workspace</option>
+              {projects.length === 0 ? (
+                <option value="">No project selected</option>
               ) : (
-                workspaces.map((ws) => (
-                  <option key={ws._id} value={ws._id}>
-                    {ws.name}
+                projects.map((project) => (
+                  <option key={project._id} value={project._id}>
+                    {project.key} — {project.name}
                   </option>
                 ))
               )}
             </select>
             <button
               type="button"
-              onClick={() => setShowCreateWs(true)}
+              onClick={() => navigate('/projects')}
               className={styles.wsAddBtn}
-              title="Create new workspace"
-              aria-label="Create new workspace"
+              title="Project selection"
+              aria-label="Project selection"
             >
               <Plus size={14} />
             </button>
@@ -185,17 +215,17 @@ export const Sidebar = ({ collapsed, onToggleCollapse, mobileOpen, onCloseMobile
         <nav className={styles.nav} aria-label="Main Navigation">
           <div className={styles.section}>
             {!collapsed && <span className={styles.sectionLabel}>Overview</span>}
-            {renderNavGroup(OVERVIEW_NAV)}
+            {renderNavGroup(overviewNav)}
           </div>
 
           <div className={styles.section}>
             {!collapsed && <span className={styles.sectionLabel}>Workspace</span>}
-            {renderNavGroup(WORKSPACE_NAV)}
+            {renderNavGroup(projectNav)}
           </div>
 
           <div className={styles.section}>
             {!collapsed && <span className={styles.sectionLabel}>Manage</span>}
-            {renderNavGroup(MANAGE_NAV)}
+            {renderNavGroup(manageNav)}
           </div>
         </nav>
 

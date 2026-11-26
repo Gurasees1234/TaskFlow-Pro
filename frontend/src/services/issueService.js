@@ -1,6 +1,11 @@
 import { apiClient } from './apiClient';
 
 export const issueService = {
+  async listWorkspace(params = {}) {
+    if (!params.projectId) return { issues: [], total: 0 };
+    const { data } = await apiClient.get(`/issues/project/${params.projectId}`, { params });
+    return data;
+  },
   async listMy(params = {}) {
     const { data } = await apiClient.get('/issues/my', { params });
     return data.issues || [];

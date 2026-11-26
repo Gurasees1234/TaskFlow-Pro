@@ -13,7 +13,7 @@ export const LoginPage = () => {
   const { login } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const redirectTo = location.state?.from?.pathname || '/dashboard';
+  const redirectTo = location.state?.from?.pathname || '/projects';
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');

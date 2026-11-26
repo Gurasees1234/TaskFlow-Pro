@@ -20,27 +20,31 @@ import { EmptyState, ErrorState, LoadingState } from '../components/common/State
 import pageStyles from './WorkspacePages.module.css';
 
 export const ReportsPage = () => {
-  const { currentWorkspace } = useWorkspace();
-  const [data, setData] = useState(null);
+  const { currentWorkspace, currentProject } = useWorkspace();  const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
   const loadAnalytics = useCallback(async () => {
-    if (!currentWorkspace?._id) {
+    // Prefer project-scoped analytics; fall back to workspace stub; show empty if neither
+    const projectId = currentProject?._id;
+    const wsId = currentWorkspace?._id;
+    if (!projectId && !wsId) {
       setLoading(false);
       return;
     }
     setLoading(true);
     setError('');
     try {
-      const res = await analyticsService.getWorkspace(currentWorkspace._id);
+      const res = projectId
+        ? await analyticsService.getProject(projectId)
+        : await analyticsService.getWorkspace(wsId);
       setData(res);
     } catch (err) {
       setError(err.message);
     } finally {
       setLoading(false);
     }
-  }, [currentWorkspace?._id]);
+  }, [currentProject?._id, currentWorkspace?._id]);
 
   useEffect(() => {
     loadAnalytics();
@@ -49,7 +53,7 @@ export const ReportsPage = () => {
   if (loading) {
     return (
       <div className={pageStyles.page}>
-        <PageHeader eyebrow="Workspace" title="Reports & Analytics" />
+        <PageHeader eyebrow="Reports" title="Reports & Analytics" />
         <LoadingState label="Aggregating MongoDB analytics..." />
       </div>
     );
@@ -58,7 +62,7 @@ export const ReportsPage = () => {
   if (error) {
     return (
       <div className={pageStyles.page}>
-        <PageHeader eyebrow="Workspace" title="Reports & Analytics" />
+        <PageHeader eyebrow="Reports" title="Reports & Analytics" />
         <ErrorState message={error} onRetry={loadAnalytics} />
       </div>
     );
@@ -67,8 +71,8 @@ export const ReportsPage = () => {
   if (!data) {
     return (
       <div className={pageStyles.page}>
-        <PageHeader eyebrow="Workspace" title="Reports & Analytics" />
-        <EmptyState icon={BarChart3} title="No workspace selected" description="Select or create a workspace to view reports." />
+        <PageHeader eyebrow="Reports" title="Reports & Analytics" />
+        <EmptyState icon={BarChart3} title="No project selected" description="Open a project to view reports and analytics." />
       </div>
     );
   }

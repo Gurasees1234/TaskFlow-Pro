@@ -14,8 +14,8 @@ import modalStyles from '../components/dashboard/ModalOverlay.module.css';
 import pageStyles from './WorkspacePages.module.css';
 
 export const SprintsPage = () => {
-  const { currentWorkspace, projects, activeRole, refreshWorkspaceMeta } = useWorkspace();
-  const canManage = ['admin', 'project_manager'].includes(activeRole);
+  const { currentWorkspace, currentProject, projects, activeRole, refreshWorkspaceMeta } = useWorkspace();
+  const canManage = ['admin', 'project_manager', 'project_lead'].includes(activeRole);
 
   const [sprints, setSprints] = useState([]);
   const [sprintIssuesMap, setSprintIssuesMap] = useState({});
@@ -36,8 +36,11 @@ export const SprintsPage = () => {
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [selectedIssueId, setSelectedIssueId] = useState(null);
 
+  // Determine effective project for sprint listing
+  const effectiveProjectId = currentProject?._id || projectId || projects[0]?._id;
+
   const loadSprints = useCallback(async () => {
-    if (!currentWorkspace?._id) {
+    if (!effectiveProjectId) {
       setLoading(false);
       return;
     }
@@ -45,8 +48,8 @@ export const SprintsPage = () => {
     setError('');
     try {
       const [sprintList, allIssuesRes] = await Promise.all([
-        sprintService.list({ workspaceId: currentWorkspace._id }),
-        issueService.listWorkspace({ workspaceId: currentWorkspace._id, limit: 250 }),
+        sprintService.listByProject(effectiveProjectId),
+        issueService.listByProject(effectiveProjectId, { limit: 250 }),
       ]);
       setSprints(sprintList);
 
@@ -64,7 +67,7 @@ export const SprintsPage = () => {
     } finally {
       setLoading(false);
     }
-  }, [currentWorkspace?._id]);
+  }, [effectiveProjectId]);
 
   useEffect(() => {
     loadSprints();
@@ -72,7 +75,7 @@ export const SprintsPage = () => {
 
   const handleCreate = async (e) => {
     e.preventDefault();
-    const pid = projectId || projects[0]?._id;
+    const pid = projectId || currentProject?._id || projects[0]?._id;
     if (!name.trim() || !pid) {
       setFormError('Sprint name and project are required');
       return;
@@ -83,7 +86,6 @@ export const SprintsPage = () => {
       await sprintService.create({
         name: name.trim(),
         projectId: pid,
-        workspaceId: currentWorkspace._id,
         startDate,
         endDate,
         goal: goal.trim(),
@@ -145,7 +147,7 @@ export const SprintsPage = () => {
   return (
     <div className={pageStyles.page}>
       <PageHeader
-        eyebrow="Workspace"
+        eyebrow="Project"
         title="Active Sprints"
         subtitle="Plan sprint cycles, monitor execution velocity, and manage sprint scope."
         actions={
@@ -154,10 +156,10 @@ export const SprintsPage = () => {
               variant="primary"
               icon={Plus}
               onClick={() => {
-                setProjectId(projects[0]?._id || '');
+                setProjectId(currentProject?._id || projects[0]?._id || '');
                 setShowCreate(true);
               }}
-              disabled={projects.length === 0}
+              disabled={projects.length === 0 && !currentProject}
             >
               New Sprint
             </Button>

@@ -3,6 +3,8 @@ import { Activity, Briefcase, Plus, Search, Trash2, UserPlus, Users } from 'luci
 import { useWorkspace } from '../hooks/useWorkspace';
 import { useAuth } from '../hooks/useAuth';
 import { workspaceService } from '../services/workspaceService';
+import { projectService } from '../services/projectService';
+import { invitationService } from '../services/invitationService';
 import { PageHeader } from '../components/common/PageHeader';
 import { GlassPanel } from '../components/ui/GlassPanel';
 import { Button } from '../components/ui/Button';
@@ -14,9 +16,11 @@ import pageStyles from './WorkspacePages.module.css';
 
 const ROLE_LABELS = {
   admin: 'Workspace Admin',
+  project_lead: 'Project Lead',
   project_manager: 'Project Manager',
   developer: 'Developer',
   tester: 'Tester / QA',
+  viewer: 'Viewer',
 };
 
 const getInitials = (name = 'U') =>
@@ -29,9 +33,11 @@ const getInitials = (name = 'U') =>
 
 export const TeamMembersPage = () => {
   const { user } = useAuth();
-  const { currentWorkspace, projects, activeRole, refreshWorkspaces, refreshWorkspaceMeta } =
+  const { currentWorkspace, currentProject, projects, activeRole, refreshWorkspaces, refreshWorkspaceMeta } =
     useWorkspace();
-  const isAdmin = activeRole === 'admin';
+  const isAdmin = currentProject
+    ? ['project_lead', 'project_manager'].includes(activeRole)
+    : activeRole === 'admin';
 
   const [members, setMembers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -49,21 +55,23 @@ export const TeamMembersPage = () => {
   const [removeTarget, setRemoveTarget] = useState(null);
 
   const loadMembers = useCallback(async () => {
-    if (!currentWorkspace?._id) {
+    if (!currentProject?._id && !currentWorkspace?._id) {
       setLoading(false);
       return;
     }
     setLoading(true);
     setError('');
     try {
-      const list = await workspaceService.getMembers(currentWorkspace._id);
+      const list = currentProject?._id
+        ? await projectService.getMembers(currentProject._id)
+        : await workspaceService.getMembers(currentWorkspace._id);
       setMembers(list);
     } catch (err) {
       setError(err.message);
     } finally {
       setLoading(false);
     }
-  }, [currentWorkspace?._id]);
+  }, [currentProject?._id, currentWorkspace?._id]);
 
   useEffect(() => {
     loadMembers();
@@ -78,10 +86,17 @@ export const TeamMembersPage = () => {
     setSaving(true);
     setInviteError('');
     try {
-      await workspaceService.addMember(currentWorkspace._id, {
-        email: inviteEmail.trim(),
-        role: inviteRole,
-      });
+      if (currentProject?._id) {
+        await invitationService.sendInvites(currentProject._id, {
+          email: inviteEmail.trim(),
+          role: inviteRole,
+        });
+      } else {
+        await workspaceService.addMember(currentWorkspace._id, {
+          email: inviteEmail.trim(),
+          role: inviteRole,
+        });
+      }
       setInviteOpen(false);
       setInviteEmail('');
       await Promise.all([loadMembers(), refreshWorkspaces(), refreshWorkspaceMeta()]);
@@ -95,7 +110,11 @@ export const TeamMembersPage = () => {
   const handleRoleChange = async (userId, nextRole) => {
     setError('');
     try {
-      await workspaceService.updateMemberRole(currentWorkspace._id, userId, nextRole);
+      if (currentProject?._id) {
+        await projectService.updateMemberRole(currentProject._id, userId, nextRole);
+      } else {
+        await workspaceService.updateMemberRole(currentWorkspace._id, userId, nextRole);
+      }
       await Promise.all([loadMembers(), refreshWorkspaces(), refreshWorkspaceMeta()]);
     } catch (err) {
       setError(err.message);
@@ -106,7 +125,11 @@ export const TeamMembersPage = () => {
     if (!removeTarget) return;
     setSaving(true);
     try {
-      await workspaceService.removeMember(currentWorkspace._id, removeTarget.user._id);
+      if (currentProject?._id) {
+        await projectService.removeMember(currentProject._id, removeTarget.user._id);
+      } else {
+        await workspaceService.removeMember(currentWorkspace._id, removeTarget.user._id);
+      }
       setRemoveTarget(null);
       await Promise.all([loadMembers(), refreshWorkspaces(), refreshWorkspaceMeta()]);
     } catch (err) {
@@ -216,10 +239,22 @@ export const TeamMembersPage = () => {
               onChange={(e) => setRoleFilter(e.target.value)}
             >
               <option value="all">All Roles</option>
-              <option value="admin">Workspace Admin</option>
-              <option value="project_manager">Project Manager</option>
-              <option value="developer">Developer</option>
-              <option value="tester">Tester / QA</option>
+              {currentProject ? (
+                <>
+                  <option value="project_lead">Project Lead</option>
+                  <option value="project_manager">Project Manager</option>
+                  <option value="developer">Developer</option>
+                  <option value="tester">Tester / QA</option>
+                  <option value="viewer">Viewer</option>
+                </>
+              ) : (
+                <>
+                  <option value="admin">Workspace Admin</option>
+                  <option value="project_manager">Project Manager</option>
+                  <option value="developer">Developer</option>
+                  <option value="tester">Tester / QA</option>
+                </>
+              )}
             </select>
           </div>
           <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
@@ -273,10 +308,22 @@ export const TeamMembersPage = () => {
                           value={m.role}
                           onChange={(e) => handleRoleChange(m.user._id, e.target.value)}
                         >
-                          <option value="admin">Workspace Admin</option>
-                          <option value="project_manager">Project Manager</option>
-                          <option value="developer">Developer</option>
-                          <option value="tester">Tester / QA</option>
+                          {currentProject ? (
+                            <>
+                              <option value="project_lead">Project Lead</option>
+                              <option value="project_manager">Project Manager</option>
+                              <option value="developer">Developer</option>
+                              <option value="tester">Tester / QA</option>
+                              <option value="viewer">Viewer</option>
+                            </>
+                          ) : (
+                            <>
+                              <option value="admin">Workspace Admin</option>
+                              <option value="project_manager">Project Manager</option>
+                              <option value="developer">Developer</option>
+                              <option value="tester">Tester / QA</option>
+                            </>
+                          )}
                         </select>
                       ) : (
                         <Badge variant="outline">{ROLE_LABELS[m.role] || m.role}</Badge>
@@ -325,11 +372,11 @@ export const TeamMembersPage = () => {
           <div className={modalStyles.modalShell} onClick={(e) => e.stopPropagation()}>
             <GlassPanel elevated padding="lg" className={modalStyles.modal}>
               <div className={modalStyles.modalHead}>
-                <h2 className={modalStyles.modalTitle}>Invite Workspace Member</h2>
+                <h2 className={modalStyles.modalTitle}>{currentProject ? 'Invite project member' : 'Invite workspace member'}</h2>
               </div>
               <form onSubmit={handleInvite} className={modalStyles.form}>
                 <div className={modalStyles.field}>
-                  <label className={modalStyles.label}>Registered User Email *</label>
+                  <label className={modalStyles.label}>Email address *</label>
                   <input
                     type="email"
                     className={modalStyles.input}
@@ -340,16 +387,27 @@ export const TeamMembersPage = () => {
                   />
                 </div>
                 <div className={modalStyles.field}>
-                  <label className={modalStyles.label}>Workspace Role</label>
+                  <label className={modalStyles.label}>{currentProject ? 'Project role' : 'Workspace role'}</label>
                   <select
                     className={modalStyles.select}
                     value={inviteRole}
                     onChange={(e) => setInviteRole(e.target.value)}
                   >
-                    <option value="developer">Developer</option>
-                    <option value="project_manager">Project Manager</option>
-                    <option value="tester">Tester / QA</option>
-                    <option value="admin">Workspace Admin</option>
+                    {currentProject ? (
+                      <>
+                        <option value="project_manager">Project Manager</option>
+                        <option value="developer">Developer</option>
+                        <option value="tester">Tester / QA</option>
+                        <option value="viewer">Viewer</option>
+                      </>
+                    ) : (
+                      <>
+                        <option value="developer">Developer</option>
+                        <option value="project_manager">Project Manager</option>
+                        <option value="tester">Tester / QA</option>
+                        <option value="admin">Workspace Admin</option>
+                      </>
+                    )}
                   </select>
                 </div>
                 {inviteError && <span className={modalStyles.error}>{inviteError}</span>}

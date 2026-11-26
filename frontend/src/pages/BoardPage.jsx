@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { useOutletContext, useSearchParams } from 'react-router-dom';
+import { useOutletContext, useParams, useSearchParams } from 'react-router-dom';
 import {
   DndContext,
   PointerSensor,
@@ -91,7 +91,8 @@ const BoardColumn = ({ col, issues, onSelectIssue, onQuickAdd }) => {
 };
 
 export const BoardPage = () => {
-  const { currentWorkspace, projects, members, refreshWorkspaceMeta } = useWorkspace();
+  const { currentWorkspace, currentProject, projects, members, refreshWorkspaceMeta } = useWorkspace();
+  const { projectId: routeProjectId } = useParams();
   const { searchQuery = '' } = useOutletContext() || {};
   const [searchParams] = useSearchParams();
 
@@ -101,7 +102,7 @@ export const BoardPage = () => {
   const [error, setError] = useState('');
 
   // Filters
-  const [projectFilter, setProjectFilter] = useState(searchParams.get('projectId') || '');
+  const [projectFilter, setProjectFilter] = useState(routeProjectId || searchParams.get('projectId') || currentProject?._id || '');
   const [sprintFilter, setSprintFilter] = useState('');
   const [assigneeFilter, setAssigneeFilter] = useState('');
   const [priorityFilter, setPriorityFilter] = useState('');
@@ -117,7 +118,7 @@ export const BoardPage = () => {
   );
 
   const loadBoard = useCallback(async () => {
-    if (!currentWorkspace?._id) {
+    if (!projectFilter && !currentWorkspace?._id) {
       setLoading(false);
       return;
     }
@@ -125,13 +126,18 @@ export const BoardPage = () => {
     setError('');
     try {
       const [issueRes, sprintList] = await Promise.all([
-        issueService.listWorkspace({
-          workspaceId: currentWorkspace._id,
-          projectId: projectFilter || undefined,
-          sprintId: sprintFilter || undefined,
-          limit: 200,
-        }),
-        sprintService.list({ workspaceId: currentWorkspace._id }),
+        projectFilter
+          ? issueService.listByProject(projectFilter, {
+              sprintId: sprintFilter || undefined,
+              limit: 200,
+            })
+          : issueService.listWorkspace({
+              workspaceId: currentWorkspace._id,
+              limit: 200,
+            }),
+        projectFilter
+          ? sprintService.listByProject(projectFilter)
+          : sprintService.list({ workspaceId: currentWorkspace._id }),
       ]);
       setIssues(issueRes.issues || []);
       setSprints(sprintList);

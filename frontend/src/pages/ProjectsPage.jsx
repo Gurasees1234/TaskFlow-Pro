@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useOutletContext } from 'react-router-dom';
-import { Briefcase, Columns3, FolderKanban, Pencil, Plus, Search, Trash2, Users } from 'lucide-react';
+import { Briefcase, FolderKanban, Plus, Search, Users } from 'lucide-react';
 import { useWorkspace } from '../hooks/useWorkspace';
 import { projectService } from '../services/projectService';
 import { PageHeader } from '../components/common/PageHeader';
@@ -8,108 +8,117 @@ import { GlassPanel } from '../components/ui/GlassPanel';
 import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
 import { EmptyState, ErrorState, LoadingState } from '../components/common/StateViews';
-import { ConfirmModal } from '../components/common/ConfirmModal';
 import modalStyles from '../components/dashboard/ModalOverlay.module.css';
 import pageStyles from './WorkspacePages.module.css';
 
+const PROJECT_TYPES = [
+  'Software Development',
+  'Web Development',
+  'Mobile Application',
+  'Research',
+  'Marketing',
+  'Design',
+  'General',
+];
+
 export const ProjectsPage = () => {
-  const { currentWorkspace, activeRole, refreshWorkspaceMeta } = useWorkspace();
+  const { refreshWorkspaceMeta, selectProject } = useWorkspace();
   const { searchQuery = '' } = useOutletContext() || {};
   const navigate = useNavigate();
-
   const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [sort, setSort] = useState('recent');
   const [localSearch, setLocalSearch] = useState('');
-
-  // Create / Edit Modal
   const [modalOpen, setModalOpen] = useState(false);
-  const [editing, setEditing] = useState(null);
-  const [name, setName] = useState('');
-  const [key, setKey] = useState('');
-  const [team, setTeam] = useState('Development');
-  const [status, setStatus] = useState('active');
-  const [description, setDescription] = useState('');
-  const [formError, setFormError] = useState('');
   const [saving, setSaving] = useState(false);
-
-  const [deleteTarget, setDeleteTarget] = useState(null);
-
-  const canManage = ['admin', 'project_manager'].includes(activeRole);
+  const [formError, setFormError] = useState('');
+  const [form, setForm] = useState({
+    name: '',
+    key: '',
+    description: '',
+    type: 'Software Development',
+    startDate: '',
+    targetEndDate: '',
+    priority: 'medium',
+    status: 'planning',
+    goals: '',
+    tags: '',
+  });
 
   const loadProjects = useCallback(async () => {
-    if (!currentWorkspace?._id) {
-      setLoading(false);
-      return;
-    }
     setLoading(true);
     setError('');
     try {
-      const list = await projectService.list({ workspaceId: currentWorkspace._id });
-      setProjects(list);
+      setProjects(await projectService.list({ sort }));
     } catch (err) {
       setError(err.message);
     } finally {
       setLoading(false);
     }
-  }, [currentWorkspace?._id]);
+  }, [sort]);
 
   useEffect(() => {
     loadProjects();
   }, [loadProjects]);
 
   const openCreate = () => {
-    setEditing(null);
-    setName('');
-    setKey('');
-    setTeam('Development');
-    setStatus('active');
-    setDescription('');
+    setForm({
+      name: '',
+      key: '',
+      description: '',
+      type: 'Software Development',
+      startDate: '',
+      targetEndDate: '',
+      priority: 'medium',
+      status: 'planning',
+      goals: '',
+      tags: '',
+    });
     setFormError('');
     setModalOpen(true);
   };
 
-  const openEdit = (p) => {
-    setEditing(p);
-    setName(p.name);
-    setKey(p.key || '');
-    setTeam(p.team || 'Development');
-    setStatus(p.status || 'active');
-    setDescription(p.description || '');
-    setFormError('');
-    setModalOpen(true);
-  };
+  const updateField = (name, value) => setForm((current) => ({ ...current, [name]: value }));
 
-  const handleSave = async (e) => {
-    e.preventDefault();
-    if (!name.trim() || name.trim().length < 2) {
+  const handleCreate = async (event) => {
+    event.preventDefault();
+    if (!form.name.trim() || form.name.trim().length < 2) {
       setFormError('Project name must be at least 2 characters');
       return;
     }
+    if (!form.key.trim()) {
+      setFormError('Project key is required');
+      return;
+    }
+    if (!form.description.trim()) {
+      setFormError('Project description is required');
+      return;
+    }
+    if (!form.startDate || !form.targetEndDate) {
+      setFormError('Start date and target end date are required');
+      return;
+    }
+    if (new Date(form.targetEndDate) < new Date(form.startDate)) {
+      setFormError('Target end date must not precede start date');
+      return;
+    }
+
     setSaving(true);
     setFormError('');
     try {
-      if (editing) {
-        await projectService.update(editing._id, {
-          name: name.trim(),
-          key: key.trim() || undefined,
-          team,
-          status,
-          description: description.trim(),
-        });
-      } else {
-        await projectService.create({
-          name: name.trim(),
-          key: key.trim() || undefined,
-          team,
-          status,
-          description: description.trim(),
-          workspaceId: currentWorkspace._id,
-        });
-      }
+      const payload = {
+        ...form,
+        goals: form.goals.split(',').map((item) => item.trim()).filter(Boolean),
+        tags: form.tags.split(',').map((item) => item.trim()).filter(Boolean),
+      };
+      const result = await projectService.create(payload);
+      const created = result.project;
       setModalOpen(false);
-      await Promise.all([loadProjects(), refreshWorkspaceMeta()]);
+      await refreshWorkspaceMeta();
+      selectProject(created._id);
+      navigate(`/projects/${created._id}/dashboard`);
     } catch (err) {
       setFormError(err.message);
     } finally {
@@ -117,43 +126,29 @@ export const ProjectsPage = () => {
     }
   };
 
-  const handleDelete = async () => {
-    if (!deleteTarget) return;
-    setSaving(true);
-    try {
-      await projectService.remove(deleteTarget._id);
-      setDeleteTarget(null);
-      await Promise.all([loadProjects(), refreshWorkspaceMeta()]);
-    } catch (err) {
-      setError(err.message);
-      setDeleteTarget(null);
-    } finally {
-      setSaving(false);
-    }
+  const openProject = (project) => {
+    selectProject(project._id);
+    navigate(`/projects/${project._id}/dashboard`);
   };
 
   const q = (localSearch || searchQuery).trim().toLowerCase();
-  const filtered = projects.filter((p) => {
-    const matchStatus = statusFilter === 'all' || p.status === statusFilter;
+  const filtered = useMemo(() => projects.filter((project) => {
+    const matchStatus = statusFilter === 'all' || project.status === statusFilter;
     const matchSearch =
       !q ||
-      p.name.toLowerCase().includes(q) ||
-      (p.key && p.key.toLowerCase().includes(q)) ||
-      (p.description && p.description.toLowerCase().includes(q));
+      project.name?.toLowerCase().includes(q) ||
+      project.key?.toLowerCase().includes(q) ||
+      project.description?.toLowerCase().includes(q);
     return matchStatus && matchSearch;
-  });
+  }), [projects, statusFilter, q]);
 
   return (
     <div className={pageStyles.page}>
       <PageHeader
-        eyebrow="Workspace"
-        title="Projects"
-        subtitle="Manage agile initiatives, track progress, and organize project teams."
-        actions={
-          <Button variant="primary" icon={Plus} onClick={openCreate} disabled={!currentWorkspace}>
-            New Project
-          </Button>
-        }
+        eyebrow="Projects"
+        title="Project selection"
+        subtitle="Choose a project or create a new one."
+        actions={<Button variant="primary" icon={Plus} onClick={openCreate}>Create project</Button>}
       />
 
       <GlassPanel padding="sm">
@@ -164,25 +159,28 @@ export const ProjectsPage = () => {
               <input
                 type="search"
                 className={`${pageStyles.input} ${pageStyles.searchInput}`}
-                placeholder="Search projects by name or key..."
+                placeholder="Search projects..."
                 value={localSearch}
-                onChange={(e) => setLocalSearch(e.target.value)}
+                onChange={(event) => setLocalSearch(event.target.value)}
               />
             </div>
-            <select
-              className={pageStyles.select}
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-            >
+            <select className={pageStyles.select} value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
               <option value="all">All statuses</option>
+              <option value="planning">Planning</option>
               <option value="active">Active</option>
+              <option value="on_hold">On hold</option>
               <option value="completed">Completed</option>
               <option value="archived">Archived</option>
             </select>
+            <select className={pageStyles.select} value={sort} onChange={(event) => setSort(event.target.value)}>
+              <option value="recent">Recently updated</option>
+              <option value="newest">Newest</option>
+              <option value="name">Name</option>
+              <option value="progress">Progress</option>
+              <option value="targetEndDate">Target date</option>
+            </select>
           </div>
-          <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-            {filtered.length} project{filtered.length === 1 ? '' : 's'}
-          </span>
+          <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{filtered.length} projects</span>
         </div>
       </GlassPanel>
 
@@ -193,70 +191,42 @@ export const ProjectsPage = () => {
       ) : filtered.length === 0 ? (
         <EmptyState
           icon={FolderKanban}
-          title="No projects found"
-          description="Create your first project to organize sprints, issues, and team delivery."
-          action={
-            <Button variant="primary" icon={Plus} onClick={openCreate}>
-              Create Project
-            </Button>
-          }
+          title="You don't have any projects yet."
+          description="Create your first project to get started."
+          action={<Button variant="primary" icon={Plus} onClick={openCreate}>Create Project</Button>}
         />
       ) : (
         <div className={pageStyles.grid3}>
-          {filtered.map((proj) => (
-            <GlassPanel key={proj._id} padding="md" className={pageStyles.kpiCard} style={{ flexDirection: 'column', alignItems: 'stretch', gap: 14 }}>
-              <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 }}>
+          {filtered.map((project) => (
+            <GlassPanel key={project._id} padding="md" className={pageStyles.kpiCard} style={{ flexDirection: 'column', alignItems: 'stretch', gap: 14 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10 }}>
                 <div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                    <Badge variant="contrast" mono>{proj.key || 'TF'}</Badge>
-                    <Badge variant="outline">{proj.team || 'General'}</Badge>
-                  </div>
-                  <h3 style={{ fontSize: 'var(--text-base)', fontWeight: 600 }}>{proj.name}</h3>
+                  <Badge variant="contrast" mono>{project.key}</Badge>
+                  <h3 style={{ marginTop: 8, fontSize: 'var(--text-base)' }}>{project.name}</h3>
                 </div>
-                <Badge variant={proj.status === 'completed' ? 'neutral' : 'outline'}>
-                  {proj.status}
-                </Badge>
+                <Badge variant="outline">{project.status?.replace('_', ' ')}</Badge>
               </div>
-
-              <p style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', minHeight: 34 }}>
-                {proj.description || 'No description provided.'}
+              <p style={{ minHeight: 34, fontSize: 'var(--text-xs)', color: 'var(--text-secondary)' }}>
+                {project.description || 'No description provided.'}
               </p>
-
+              <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                <div>Lead: {project.lead?.name || 'Project Lead'}</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 4 }}>
+                  <Users size={12} /> {project.memberCount || 1} members
+                </div>
+                <div style={{ marginTop: 4 }}>
+                  {project.startDate ? new Date(project.startDate).toLocaleDateString() : 'No start'} — {project.targetEndDate ? new Date(project.targetEndDate).toLocaleDateString() : 'No target'}
+                </div>
+              </div>
               <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: 'var(--text-muted)', marginBottom: 6 }}>
-                  <span>{proj.completedCount || 0} / {proj.issueCount || 0} issues done</span>
-                  <span>{proj.progress ?? 0}%</span>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, marginBottom: 6 }}>
+                  <span>Progress</span><span>{project.progress ?? 0}%</span>
                 </div>
                 <div className={pageStyles.progressTrack}>
-                  <div className={pageStyles.progressFill} style={{ width: `${proj.progress ?? 0}%` }} />
+                  <div className={pageStyles.progressFill} style={{ width: `${project.progress ?? 0}%` }} />
                 </div>
               </div>
-
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: 6, borderTop: '1px solid var(--border-subtle)' }}>
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11, color: 'var(--text-muted)' }}>
-                  <Users size={12} /> {proj.members?.length || 1} members
-                </span>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    icon={Columns3}
-                    onClick={() => navigate(`/board?projectId=${proj._id}`)}
-                  >
-                    Board
-                  </Button>
-                  {canManage && (
-                    <>
-                      <Button size="sm" variant="ghost" icon={Pencil} onClick={() => openEdit(proj)}>
-                        Edit
-                      </Button>
-                      <Button size="sm" variant="ghost" icon={Trash2} onClick={() => setDeleteTarget(proj)}>
-                        Delete
-                      </Button>
-                    </>
-                  )}
-                </div>
-              </div>
+              <Button variant="primary" onClick={() => openProject(project)}>Open project</Button>
             </GlassPanel>
           ))}
         </div>
@@ -264,93 +234,43 @@ export const ProjectsPage = () => {
 
       {modalOpen && (
         <div className={modalStyles.overlay} onClick={() => setModalOpen(false)}>
-          <div className={modalStyles.modalShell} onClick={(e) => e.stopPropagation()}>
+          <div className={modalStyles.modalShell} onClick={(event) => event.stopPropagation()}>
             <GlassPanel elevated padding="lg" className={modalStyles.modal}>
               <div className={modalStyles.modalHead}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <Briefcase size={16} />
-                  <h2 className={modalStyles.modalTitle}>
-                    {editing ? 'Edit Project' : 'Create Project'}
-                  </h2>
+                  <h2 className={modalStyles.modalTitle}>Create project</h2>
                 </div>
               </div>
-              <form onSubmit={handleSave} className={modalStyles.form}>
+              <form onSubmit={handleCreate} className={modalStyles.form}>
                 <div className={modalStyles.fieldRow}>
-                  <div className={modalStyles.field}>
-                    <label className={modalStyles.label}>Project Name *</label>
-                    <input
-                      className={modalStyles.input}
-                      value={name}
-                      onChange={(e) => setName(e.target.value)}
-                      placeholder="Core Platform"
-                      autoFocus
-                    />
-                  </div>
-                  <div className={modalStyles.field}>
-                    <label className={modalStyles.label}>Key (optional)</label>
-                    <input
-                      className={modalStyles.input}
-                      value={key}
-                      onChange={(e) => setKey(e.target.value.toUpperCase())}
-                      placeholder="CP"
-                      maxLength={6}
-                    />
-                  </div>
+                  <div className={modalStyles.field}><label className={modalStyles.label}>Project name *</label><input className={modalStyles.input} value={form.name} onChange={(e) => updateField('name', e.target.value)} /></div>
+                  <div className={modalStyles.field}><label className={modalStyles.label}>Project key *</label><input className={modalStyles.input} value={form.key} maxLength={10} onChange={(e) => updateField('key', e.target.value.toUpperCase())} placeholder="TFP" /></div>
+                </div>
+                <div className={modalStyles.field}><label className={modalStyles.label}>Description *</label><textarea className={modalStyles.textarea} value={form.description} onChange={(e) => updateField('description', e.target.value)} /></div>
+                <div className={modalStyles.fieldRow}>
+                  <div className={modalStyles.field}><label className={modalStyles.label}>Project type *</label><select className={modalStyles.select} value={form.type} onChange={(e) => updateField('type', e.target.value)}>{PROJECT_TYPES.map((type) => <option key={type}>{type}</option>)}</select></div>
+                  <div className={modalStyles.field}><label className={modalStyles.label}>Priority *</label><select className={modalStyles.select} value={form.priority} onChange={(e) => updateField('priority', e.target.value)}><option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option><option value="critical">Critical</option></select></div>
                 </div>
                 <div className={modalStyles.fieldRow}>
-                  <div className={modalStyles.field}>
-                    <label className={modalStyles.label}>Team</label>
-                    <select className={modalStyles.select} value={team} onChange={(e) => setTeam(e.target.value)}>
-                      <option value="Development">Development</option>
-                      <option value="Design">Design</option>
-                      <option value="Marketing">Marketing</option>
-                      <option value="Product">Product</option>
-                    </select>
-                  </div>
-                  <div className={modalStyles.field}>
-                    <label className={modalStyles.label}>Status</label>
-                    <select className={modalStyles.select} value={status} onChange={(e) => setStatus(e.target.value)}>
-                      <option value="active">Active</option>
-                      <option value="completed">Completed</option>
-                      <option value="archived">Archived</option>
-                    </select>
-                  </div>
+                  <div className={modalStyles.field}><label className={modalStyles.label}>Start date *</label><input type="date" className={modalStyles.input} value={form.startDate} onChange={(e) => updateField('startDate', e.target.value)} /></div>
+                  <div className={modalStyles.field}><label className={modalStyles.label}>Target end date *</label><input type="date" className={modalStyles.input} value={form.targetEndDate} onChange={(e) => updateField('targetEndDate', e.target.value)} /></div>
                 </div>
-                <div className={modalStyles.field}>
-                  <label className={modalStyles.label}>Description</label>
-                  <textarea
-                    className={modalStyles.textarea}
-                    value={description}
-                    onChange={(e) => setDescription(e.target.value)}
-                    placeholder="Project goals and scope..."
-                  />
+                <div className={modalStyles.fieldRow}>
+                  <div className={modalStyles.field}><label className={modalStyles.label}>Status</label><select className={modalStyles.select} value={form.status} onChange={(e) => updateField('status', e.target.value)}><option value="planning">Planning</option><option value="active">Active</option><option value="on_hold">On hold</option><option value="completed">Completed</option><option value="archived">Archived</option></select></div>
+                  <div className={modalStyles.field}><label className={modalStyles.label}>Tags (comma separated)</label><input className={modalStyles.input} value={form.tags} onChange={(e) => updateField('tags', e.target.value)} /></div>
                 </div>
+                <div className={modalStyles.field}><label className={modalStyles.label}>Goals (comma separated)</label><textarea className={modalStyles.textarea} value={form.goals} onChange={(e) => updateField('goals', e.target.value)} /></div>
                 {formError && <span className={modalStyles.error}>{formError}</span>}
                 <div className={modalStyles.actions}>
-                  <Button type="button" variant="ghost" onClick={() => setModalOpen(false)}>
-                    Cancel
-                  </Button>
-                  <Button type="submit" variant="primary" disabled={saving}>
-                    {saving ? 'Saving...' : editing ? 'Save Changes' : 'Create Project'}
-                  </Button>
+                  <Button type="button" variant="ghost" onClick={() => setModalOpen(false)}>Cancel</Button>
+                  <Button type="submit" variant="primary" disabled={saving}>{saving ? 'Creating...' : 'Create project'}</Button>
                 </div>
               </form>
             </GlassPanel>
           </div>
         </div>
       )}
-
-      {deleteTarget && (
-        <ConfirmModal
-          title="Delete Project"
-          message={`Delete "${deleteTarget.name}" and all of its issues and sprints? This action cannot be undone.`}
-          confirmLabel="Delete Project"
-          loading={saving}
-          onConfirm={handleDelete}
-          onClose={() => setDeleteTarget(null)}
-        />
-      )}
     </div>
   );
 };
-

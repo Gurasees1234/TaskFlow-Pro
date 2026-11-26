@@ -56,7 +56,7 @@ const mapActivityType = (action = '') => {
 
 export const useDashboardData = () => {
   const { user } = useAuth();
-  const { currentWorkspace, activeRole, refreshWorkspaceMeta } = useWorkspace();
+  const { currentWorkspace, currentProject, activeRole, refreshWorkspaceMeta } = useWorkspace();
 
   const [rawProjects, setRawProjects] = useState([]);
   const [rawIssues, setRawIssues] = useState([]);
@@ -74,6 +74,30 @@ export const useDashboardData = () => {
   const [error, setError] = useState('');
 
   const loadDashboard = useCallback(async () => {
+    const projectId = currentProject?._id;
+    if (projectId) {
+      setLoading(true);
+      setError('');
+      try {
+        const [project, issueRes, sprintList, goalList, analyticsRes] = await Promise.all([
+          projectService.getById(projectId),
+          issueService.listByProject(projectId, { limit: 100 }),
+          sprintService.listByProject(projectId),
+          goalService.list({ projectId }),
+          analyticsService.getProject(projectId),
+        ]);
+        setRawProjects([project]);
+        setRawIssues(issueRes.issues || []);
+        setRawSprints(sprintList);
+        setRawGoals(goalList);
+        setAnalytics(analyticsRes);
+      } catch (err) {
+        setError(err.message);
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
     const wsId = currentWorkspace?._id;
     if (!wsId) {
       setLoading(false);
@@ -99,7 +123,7 @@ export const useDashboardData = () => {
     } finally {
       setLoading(false);
     }
-  }, [currentWorkspace?._id]);
+  }, [currentWorkspace?._id, currentProject?._id]);
 
   useEffect(() => {
     loadDashboard();
