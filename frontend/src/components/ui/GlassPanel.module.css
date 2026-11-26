@@ -1,0 +1,40 @@
+.panel {
+  position: relative;
+  background: var(--bg-card-frosted);
+  backdrop-filter: var(--blur-glass);
+  -webkit-backdrop-filter: var(--blur-glass);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-float);
+  transition:
+    border-color var(--duration-fast) var(--ease-architectural),
+    background-color var(--duration-base) var(--ease-architectural),
+    box-shadow var(--duration-base) var(--ease-architectural),
+    transform var(--duration-base) var(--ease-architectural);
+}
+
+.panel:hover {
+  border-color: var(--border-default);
+}
+
+.elevated {
+  background: var(--bg-glass-elevated);
+  box-shadow: var(--shadow-glass);
+  border-color: var(--border-default);
+}
+
+.padding-none {
+  padding: 0;
+}
+
+.padding-sm {
+  padding: var(--space-3);
+}
+
+.padding-md {
+  padding: var(--space-5);
+}
+
+.padding-lg {
+  padding: var(--space-6);
+}

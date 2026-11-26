@@ -1,0 +1,232 @@
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: 0 2px;
+}
+
+.title {
+  font-size: var(--text-base);
+  font-weight: 500;
+  letter-spacing: -0.015em;
+  color: var(--text-primary);
+}
+
+.controls {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.sortBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 10px;
+  border-radius: var(--radius-pill);
+  font-size: 11px;
+  color: var(--text-secondary);
+  background: var(--bg-card-frosted);
+  border: 1px solid var(--border-subtle);
+  transition: border-color var(--duration-fast) var(--ease-architectural);
+}
+
+.sortBtn:hover,
+.controlActive {
+  color: var(--text-primary);
+  border-color: var(--border-default);
+}
+
+.viewGroup {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-card-frosted);
+  border: 1px solid var(--border-subtle);
+}
+
+.viewBtn {
+  width: 24px;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-xs);
+  color: var(--text-muted);
+}
+
+.viewBtnActive {
+  background: var(--accent-solid);
+  color: var(--accent-solid-text);
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-3);
+}
+
+.listMode {
+  grid-template-columns: 1fr;
+}
+
+.projectCard {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-5);
+  border-radius: var(--radius-lg);
+  background: var(--bg-card-contrast);
+  color: var(--text-contrast-primary);
+  border: 1px solid var(--border-contrast);
+  box-shadow: var(--shadow-float);
+  transition: box-shadow var(--duration-base) var(--ease-architectural);
+}
+
+.projectCard:hover {
+  box-shadow: var(--shadow-glass);
+}
+
+.projectCardList {
+  flex-direction: row;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.cardTop {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.cardTitleBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.projectName {
+  font-size: var(--text-base);
+  font-weight: 500;
+  letter-spacing: -0.015em;
+  color: var(--text-contrast-primary);
+}
+
+.statusRow {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--text-contrast-secondary);
+}
+
+.statusDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #ffffff;
+}
+
+.statusText {
+  color: var(--text-contrast-secondary);
+}
+
+.sep {
+  opacity: 0.4;
+}
+
+.teamTag {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-contrast-secondary);
+}
+
+.ringWrap {
+  position: relative;
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ringNum {
+  position: absolute;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 600;
+  color: var(--text-contrast-primary);
+}
+
+.activityText {
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--text-contrast-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cardFoot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.avatarStack {
+  display: inline-flex;
+  align-items: center;
+}
+
+.memberChip {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.14);
+  border: 1.5px solid var(--bg-card-contrast);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 600;
+  color: var(--text-contrast-primary);
+  margin-left: -6px;
+}
+
+.memberChip:first-child {
+  margin-left: 0;
+}
+
+.pctLabel {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-contrast-secondary);
+}
+
+@media (max-width: 1024px) {
+  .grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .grid {
+    grid-template-columns: 1fr;
+  }
+}
+
