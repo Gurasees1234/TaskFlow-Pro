@@ -1,0 +1,132 @@
+.card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: var(--space-5);
+  padding: var(--space-5);
+  border-radius: var(--radius-lg);
+  background: var(--bg-card-contrast);
+  color: var(--text-contrast-primary);
+  border: 1px solid var(--border-contrast);
+  box-shadow: var(--shadow-glass);
+  height: 100%;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.title {
+  font-size: var(--text-base);
+  font-weight: 500;
+  letter-spacing: -0.015em;
+  color: var(--text-contrast-primary);
+}
+
+.iconBtn {
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  color: var(--text-contrast-secondary);
+  background: var(--bg-contrast-tile);
+  transition:
+    color var(--duration-fast) var(--ease-architectural),
+    background-color var(--duration-fast) var(--ease-architectural);
+}
+
+.iconBtn:hover {
+  color: var(--text-contrast-primary);
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.heroStats {
+  display: flex;
+  align-items: center;
+  gap: var(--space-5);
+}
+
+.heroStatBlock {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.heroNumber {
+  font-size: 2.25rem;
+  font-weight: 500;
+  line-height: 1;
+  letter-spacing: -0.04em;
+  color: var(--text-contrast-primary);
+}
+
+.heroCaption {
+  font-size: 11px;
+  line-height: 1.35;
+  color: var(--text-contrast-secondary);
+}
+
+.divider {
+  width: 1px;
+  height: 36px;
+  background: var(--border-contrast);
+}
+
+.tilesGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-2);
+}
+
+.tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: var(--space-3) var(--space-2);
+  border-radius: var(--radius-md);
+  background: var(--bg-contrast-tile);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  text-align: center;
+  transition:
+    transform var(--duration-fast) var(--ease-architectural),
+    background-color var(--duration-fast) var(--ease-architectural);
+}
+
+.tile:hover {
+  transform: translateY(-2px);
+  background: rgba(255, 255, 255, 0.11);
+}
+
+.tileIcon {
+  color: var(--text-contrast-secondary);
+  margin-bottom: 2px;
+}
+
+.tileValue {
+  font-size: var(--text-xl);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--text-contrast-primary);
+}
+
+.tileLabel {
+  font-size: 11px;
+  color: var(--text-contrast-secondary);
+}
+
+@media (max-width: 480px) {
+  .heroStats {
+    gap: var(--space-3);
+  }
+
+  .heroNumber {
+    font-size: 1.85rem;
+  }
+}
